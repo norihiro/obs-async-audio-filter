@@ -9,9 +9,14 @@ https://github.com/obsproject/obs-studio/issues/4600
 
 ## Properties
 
-### Gain
+### Use OBS time
 
-How fast and strong this plugin will respond to the variation of the source clock.
+This plugin assumes the timestamp set by the audio source is calculated from the function `os_gettime_ns`.
+If not, it is suggested to enable this option.
+
+### Verbosity
+
+Increase or decrease verbosity in the log file.
 
 ## Build and install
 ### Linux
