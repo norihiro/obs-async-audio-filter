@@ -4,8 +4,15 @@
 
 This plugin tries to fix an asynchronous audio by synchronizing to the master clock of OBS Studio.
 
-I hope this plugin is useful to fixdebug the issue.
-https://github.com/obsproject/obs-studio/issues/4600
+OBS Studio is running with a clock provided by the OS.
+On Linux, the clock is synchronized to the NTP server.
+On the other hand, some audio interfaces are running with their own clock to sample the audio,
+which is asynchronous from the OBS's clock.
+The difference of these clocks causes the audio buffer to reach overflow or underflow after several minutes or more and
+causes OBS to drop a bunch of audio frames or to introduce silent frames.
+
+This filter will detect the difference and periodically add or remove an audio sample.
+Since just one sample is added or removed at each time, distortion should not be noticable.
 
 ## Properties
 
