@@ -12,7 +12,7 @@
 		typedef char assertion_[2 * !!(predicate)-1]; \
 	} while (0)
 
-#define FLTP(audio_data, plane, frame) (((float*)(audio_data)[plane])[frame])
+#define FLTP(audio_data, plane, frame) (((float *)(audio_data)[plane])[frame])
 
 enum state_e {
 	state_start = 0,
@@ -26,7 +26,12 @@ struct source_s
 
 	// properties
 	bool use_obs_time;
-	int64_t gain_inv_ns;
+	int verbosity;
+	double c1;
+	double c2;
+	double r;
+	double gain;
+	double gainup;
 
 	// internal data
 	enum state_e state;
@@ -36,6 +41,12 @@ struct source_s
 
 	int64_t error_sum_ns;
 	int error_cnt;
+
+	uint64_t locked_ns;
+	double vc1;
+	double vc2;
+	double phase;
+
 	int add_remove_prev;
 
 	uint32_t cnt_untouched_frames;
@@ -55,18 +66,16 @@ static obs_properties_t *get_properties(void *data)
 {
 	UNUSED_PARAMETER(data);
 	obs_properties_t *props = obs_properties_create();
-	obs_property_t *prop;
 
 	obs_properties_add_bool(props, "use_obs_time", obs_module_text("Use OBS time instead of source time"));
-	prop = obs_properties_add_int(props, "gain_db", obs_module_text("Gain"), -80, -20, 2);
-	obs_property_float_set_suffix(prop, obs_module_text(" dB/s"));
+	obs_properties_add_int(props, "verbosity", obs_module_text("Verbosity"), 0, 2, 1);
 
 	return props;
 }
 
 static void get_defaults(obs_data_t *settings)
 {
-	obs_data_set_default_int(settings, "gain_db", -48);
+	obs_data_set_default_int(settings, "verbosity", 1);
 }
 
 static void update(void *data, obs_data_t *settings)
@@ -74,9 +83,13 @@ static void update(void *data, obs_data_t *settings)
 	struct source_s *s = data;
 
 	s->use_obs_time = obs_data_get_bool(settings, "use_obs_time");
-	int gain_db = (int)obs_data_get_int(settings, "gain_db");
-	s->gain_inv_ns = (int64_t)exp((-gain_db + 180) * (M_LN10 / 20));
-	blog(LOG_INFO, "gain_inv_ns=%" PRId64, s->gain_inv_ns);
+	s->verbosity = (int)obs_data_get_int(settings, "verbosity");
+
+	s->c1 = 2.0;
+	s->c2 = 191.0;
+	s->r = 1.0;
+	s->gain = 0.02;
+	s->gainup = 3.0;
 }
 
 static void store_last_audio(struct source_s *s, const struct obs_audio_data *audio)
@@ -153,6 +166,10 @@ static void enter_state_locked(struct source_s *s, uint64_t audio_ts)
 	s->error_sum_ns = 0;
 	s->error_cnt = 0;
 	s->state = state_locked;
+	s->locked_ns = s->audio_ns;
+	s->vc1 = 0.0;
+	s->vc2 = 0.0;
+	s->phase = 0.0;
 	s->cnt_untouched_frames = 0;
 	s->add_remove_prev = 0;
 }
@@ -160,6 +177,14 @@ static void enter_state_locked(struct source_s *s, uint64_t audio_ts)
 static inline int64_t abs_s64(int64_t x)
 {
 	return x < 0 ? -x : x;
+}
+
+#define GAINUP_END (3.0 * M_PI)
+static inline double gainup_window(double x)
+{
+	if (x < 1.0 * M_PI)
+		return 1.0;
+	return 1.0 - 0.5 * sin(x - 1.0 * M_PI);
 }
 
 static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_data *audio)
@@ -185,46 +210,70 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 		int64_t e = (int64_t)ts - (int64_t)s->audio_ns;
 
 		if (abs_s64(e) >= TS_SMOOTHING_THRESHOLD) {
-			blog(LOG_INFO, "lock failed e=%f us", e * 1e-3);
-			enter_state_locking(s);
+			blog(LOG_WARNING, "lock failed due to large error, %f us", e * 1e-3);
+			s->audio_ns = 0;
+			s->audio_ns_rem = 0;
+			s->state = state_start;
 			goto end;
 		}
 
-		s->error_sum_ns += audio->frames * e;
-		// (error_sum_ns / fs / 1e9) is the error integrated by time in [s/s]
-		// Then, adding (error_sum_ns / fs / 1e9 * gain) seconds of samples.
-		// That is, adding (error_sum_ns / 1e9 * gain) samples.
-		// threshold = (1e9 / gain)
-		int64_t threshold = s->gain_inv_ns;
+		int64_t e_max = audio->frames * 1000000000LL / fs;
+		if (abs_s64(e) > e_max) {
+			if (e < 0)
+				e = -e_max;
+			else
+				e = e_max;
+		}
 
-		// conservative to add or remove alternatively
-		if (s->error_sum_ns > 0 && s->add_remove_prev < 0)
-			threshold *= 2;
-		if (s->error_sum_ns < 0 && s->add_remove_prev > 0)
-			threshold *= 2;
+		double dt = (double)audio->frames / fs; // [s]
+		double gain = s->gain;
+		double c1 = s->c1;
+		double c2 = s->c2;
+		double gainup_control = (s->audio_ns - s->locked_ns) * 1e-9 * gain * s->r * c2 * s->gainup / (c1 + c2);
+		if (gainup_control < GAINUP_END) {
+			double gu = 1.0 + (s->gainup - 1.0) * gainup_window(gainup_control);
+			gain *= gu;
+			c1 /= gu;
+			c2 /= gu;
+		}
+		double icp = gain * e * 1e-9 * fs; // CP's gain is 1 / (2 * M_PI) [/rad]
+		const double ic2 = (s->vc1 - s->vc2) / s->r;
+		const double ic1 = icp - ic2;
+		const double vc1 = s->vc1 + ic1 / c1 * dt;
+		const double vc2 = s->vc2 + ic2 / c2 * dt;
+		s->vc1 = vc1;
+		s->vc2 = vc2;
+		s->phase += vc1 * dt; // [rad]
+
+		double threshold = 1.0; // [sample]
 
 		int add_remove = 0;
 
-		if (s->error_sum_ns > threshold) {
+		if (s->phase > threshold) {
 			add_remove = 1;
 			audio = add_frame(s, audio);
-			s->error_sum_ns -= threshold;
+			s->phase -= threshold;
 		}
-		else if (-s->error_sum_ns > threshold) {
+		else if (-s->phase > threshold) {
 			add_remove = -1;
 			audio = del_frame(s, audio);
-			s->error_sum_ns += threshold;
+			s->phase += threshold;
 		}
 
 		if (add_remove) {
-			blog(LOG_INFO, "%s one frame, identified error is %.1f ppm, e=%.2f ms",
-			     add_remove > 0 ? "adding" : "removing", 1e6 / s->cnt_untouched_frames, e * 1e-6);
+			if (s->verbosity >= 1)
+				blog(LOG_INFO, "%s one frame, identified error is %.1f ppm, e=%.2f ms vc1=%f vc2=%f",
+				     add_remove > 0 ? "adding" : "removing",
+				     1e6 / (s->cnt_untouched_frames + audio->frames), e * 1e-6, vc1, vc2);
 			s->cnt_untouched_frames = 0;
 			s->add_remove_prev = add_remove;
 		}
 		else {
 			s->cnt_untouched_frames += audio->frames;
 		}
+
+		if (s->verbosity >= 2 && (add_remove || (s->cnt_untouched_frames / audio->frames % 128) == 0))
+			blog(LOG_INFO, "vc1: %f vc2: %f phase: %f", vc1, vc2, s->phase);
 	}
 
 	if (audio) {
