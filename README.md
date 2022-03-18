@@ -25,6 +25,18 @@ If not, it is suggested to enable this option.
 
 Increase or decrease verbosity in the log file.
 
+## Recommended settings
+
+If you are using this filter with other video sources,
+I recommend to set your video source(s) to unbuffered mode.
+| Type | Instruction |
+| --- | ---
+| V4L2 | Uncheck `Use Buffering` |
+| Decklink | Uncheck `Use Buffering` |
+| Video Capture Device on macOS | Uncheck `Use Buffering` |
+| Video Capture Device on Windows | Uncheck `Buffering` |
+| NDI Source | Set `Latency Mode` to `Low (experimental)` |
+
 ## Build and install
 ### Linux
 Use cmake to build on Linux. After checkout, run these commands.
