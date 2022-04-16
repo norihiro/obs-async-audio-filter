@@ -2,6 +2,7 @@
 #include <obs-module.h>
 #include <util/platform.h>
 #include "plugin-macros.generated.h"
+#include "lag_lead_filter.h"
 
 #define STARTUP_TIMEOUT_NS (2 * 1000LL * 1000LL * 1000LL)
 #define LOCKING_TIME_NS (1 * 1000LL * 1000LL * 1000LL)
@@ -27,14 +28,11 @@ struct source_s
 	// properties
 	bool use_obs_time;
 	int verbosity;
-	double c1;
-	double c2;
-	double r;
-	double gain;
-	double gainup;
 
 	// internal data
 	enum state_e state;
+
+	struct lag_lead_filter lf;
 
 	uint64_t audio_ns;
 	int audio_ns_rem;
@@ -43,8 +41,6 @@ struct source_s
 	int error_cnt;
 
 	uint64_t locked_ns;
-	double vc1;
-	double vc2;
 	double phase;
 
 	int add_remove_prev;
@@ -85,11 +81,7 @@ static void update(void *data, obs_data_t *settings)
 	s->use_obs_time = obs_data_get_bool(settings, "use_obs_time");
 	s->verbosity = (int)obs_data_get_int(settings, "verbosity");
 
-	s->c1 = 2.0;
-	s->c2 = 191.0;
-	s->r = 1.0;
-	s->gain = 0.02;
-	s->gainup = 3.0;
+	lag_lead_filter_update(&s->lf);
 }
 
 static void store_last_audio(struct source_s *s, const struct obs_audio_data *audio)
@@ -167,8 +159,7 @@ static void enter_state_locked(struct source_s *s, uint64_t audio_ts)
 	s->error_cnt = 0;
 	s->state = state_locked;
 	s->locked_ns = s->audio_ns;
-	s->vc1 = 0.0;
-	s->vc2 = 0.0;
+	lag_lead_filter_reset(&s->lf);
 	s->phase = 0.0;
 	s->cnt_untouched_frames = 0;
 	s->add_remove_prev = 0;
@@ -177,14 +168,6 @@ static void enter_state_locked(struct source_s *s, uint64_t audio_ts)
 static inline int64_t abs_s64(int64_t x)
 {
 	return x < 0 ? -x : x;
-}
-
-#define GAINUP_END (3.0 * M_PI)
-static inline double gainup_window(double x)
-{
-	if (x < 1.0 * M_PI)
-		return 1.0;
-	return 1.0 - 0.5 * sin(x - 1.0 * M_PI);
 }
 
 static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_data *audio)
@@ -225,25 +208,11 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 				e = e_max;
 		}
 
-		double dt = (double)audio->frames / fs; // [s]
-		double gain = s->gain;
-		double c1 = s->c1;
-		double c2 = s->c2;
-		double gainup_control = (s->audio_ns - s->locked_ns) * 1e-9 * gain * s->r * c2 * s->gainup / (c1 + c2);
-		if (gainup_control < GAINUP_END) {
-			double gu = 1.0 + (s->gainup - 1.0) * gainup_window(gainup_control);
-			gain *= gu;
-			c1 /= gu;
-			c2 /= gu;
-		}
-		double icp = gain * e * 1e-9 * fs; // CP's gain is 1 / (2 * M_PI) [/rad]
-		const double ic2 = (s->vc1 - s->vc2) / s->r;
-		const double ic1 = icp - ic2;
-		const double vc1 = s->vc1 + ic1 / c1 * dt;
-		const double vc2 = s->vc2 + ic2 / c2 * dt;
-		s->vc1 = vc1;
-		s->vc2 = vc2;
-		s->phase += vc1 * dt; // [rad]
+		lag_lead_filter_set_error_ns(&s->lf, e);
+
+		lag_lead_filter_tick(&s->lf, fs, audio->frames);
+
+		s->phase += lag_lead_filter_get_drift(&s->lf) * audio->frames / fs;
 
 		double threshold = 1.0; // [sample]
 
@@ -264,7 +233,7 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 			if (s->verbosity >= 1)
 				blog(LOG_INFO, "%s one frame, identified error is %.1f ppm, e=%.2f ms vc1=%f vc2=%f",
 				     add_remove > 0 ? "adding" : "removing",
-				     1e6 / (s->cnt_untouched_frames + audio->frames), e * 1e-6, vc1, vc2);
+				     1e6 / (s->cnt_untouched_frames + audio->frames), e * 1e-6, s->lf.vc1, s->lf.vc2);
 			s->cnt_untouched_frames = 0;
 			s->add_remove_prev = add_remove;
 		}
@@ -273,7 +242,7 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 		}
 
 		if (s->verbosity >= 2 && (add_remove || (s->cnt_untouched_frames / audio->frames % 128) == 0))
-			blog(LOG_INFO, "vc1: %f vc2: %f phase: %f", vc1, vc2, s->phase);
+			blog(LOG_INFO, "vc1: %f vc2: %f phase: %f", s->lf.vc1, s->lf.vc2, s->phase);
 	}
 
 	if (audio) {

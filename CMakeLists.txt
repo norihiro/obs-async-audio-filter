@@ -58,6 +58,7 @@ set(PLUGIN_SOURCES
 
 set(PLUGIN_HEADERS
 	src/plugin-macros.generated.h
+	src/lag_lead_filter.h
 )
 
 if(MSVC)
