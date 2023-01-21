@@ -7,12 +7,19 @@ all: \
 	analyze-ac-unity.out \
 	obs-async-audio-filter-ac.svg \
 	obs-async-audio-filter-tran-ramp.svg \
-	obs-async-audio-filter-tran-step.svg
+	obs-async-audio-filter-tran-step.svg \
+	obs-async-audio-filter-ac.png \
+	obs-async-audio-filter-tran-ramp.png \
+	obs-async-audio-filter-tran-step.png
 
-.SUFFIXES: .out .sp
+.SUFFIXES: .out .sp %.svg %.png
 
 %.out: %.sp ${MODEL_FILES}
 	ngspice -p $< < /dev/null
+
+%.png: %.svg
+	convert $< $@.png
+	mv $@.png $@
 
 analyze-ac-unity.out: analyze-ac.out analyze-ac-unity.awk
 	./analyze-ac-unity.awk analyze-ac.out > $@
