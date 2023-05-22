@@ -29,13 +29,13 @@ Increase or decrease verbosity in the log file.
 
 If you are using this filter with other video sources,
 I recommend to set your video source(s) to unbuffered mode.
-| Type | Instruction |
-| --- | ---
-| V4L2 | Uncheck `Use Buffering` |
-| Decklink | Uncheck `Use Buffering` |
-| Video Capture Device on macOS | Uncheck `Use Buffering` |
-| Video Capture Device on Windows | Uncheck `Buffering` |
-| NDI Source | Set `Latency Mode` to `Low (experimental)` |
+| Type | Source settings | This filter settings |
+| --- | --- | --- |
+| V4L2 | Uncheck `Use Buffering` | Leave it as it is. |
+| Decklink | Uncheck `Use Buffering` | Leave it as it is. |
+| Video Capture Device on macOS | Uncheck `Use Buffering` | Leave it as it is. |
+| Video Capture Device on Windows | Uncheck `Buffering` | Leave it as it is. |
+| NDI Source | Set `Latency Mode` to `Low (experimental)` | Enable `Use OBS time instead of source time`. |
 
 ## Build and install
 ### Linux
