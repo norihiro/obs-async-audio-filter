@@ -37,6 +37,9 @@ I recommend to set your video source(s) to unbuffered mode.
 | Video Capture Device on Windows | Uncheck `Buffering` | Leave it as it is. |
 | NDI Source | Set `Latency Mode` to `Low (experimental)` | Enable `Use OBS time instead of source time`. |
 
+> [!NOTE]
+> Do not use this plugin for local file players such as Media Source and VLC Video Source.
+
 ## Build and install
 ### Linux
 Use cmake to build on Linux. After checkout, run these commands.
