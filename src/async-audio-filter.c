@@ -6,11 +6,13 @@
 
 #define STARTUP_TIMEOUT_NS (2 * 1000LL * 1000LL * 1000LL)
 #define LOCKING_TIME_NS (1 * 1000LL * 1000LL * 1000LL)
-#define TS_SMOOTHING_THRESHOLD 70000000ULL
+#define TS_SMOOTHING_THRESHOLD 70000000LL
 
 #define CASSERT(predicate)                                    \
 	do {                                                  \
 		typedef char assertion_[2 * !!(predicate)-1]; \
+		assertion_ *unused;                           \
+		(void)unused;                                 \
 	} while (0)
 
 #define FLTP(audio_data, plane, frame) (((float *)(audio_data)[plane])[frame])
@@ -127,6 +129,8 @@ static inline struct obs_audio_data *add_frame(struct source_s *s, struct obs_au
 
 static inline struct obs_audio_data *del_frame(struct source_s *s, struct obs_audio_data *audio)
 {
+	UNUSED_PARAMETER(s);
+
 	if (audio->frames <= 1)
 		return NULL;
 

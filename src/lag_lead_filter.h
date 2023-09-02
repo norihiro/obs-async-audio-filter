@@ -48,7 +48,7 @@ static void lag_lead_filter_update(struct lag_lead_filter *f)
 	f->gain = fu * 6.76;
 }
 
-static inline void lag_lead_filter_set_error_ns(struct lag_lead_filter *f, int32_t error_ns)
+static inline void lag_lead_filter_set_error_ns(struct lag_lead_filter *f, int64_t error_ns)
 {
 	f->error_ns = error_ns;
 }
