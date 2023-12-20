@@ -18,6 +18,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(libobs REQUIRED)
 include(cmake/ObsPluginHelpers.cmake)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/finders")
+find_package(FFmpeg REQUIRED COMPONENTS avutil swresample)
+
 configure_file(
 	src/plugin-macros.h.in
 	../src/plugin-macros.generated.h
@@ -39,12 +42,15 @@ configure_file(
 set(PLUGIN_SOURCES
 	src/plugin-main.c
 	src/async-audio-filter.c
+	src/resampler.c
 )
 
 add_library(${CMAKE_PROJECT_NAME} MODULE ${PLUGIN_SOURCES})
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
 	OBS::libobs
+	FFmpeg::swresample
+	FFmpeg::avutil
 )
 
 if(OS_WINDOWS)
