@@ -45,6 +45,8 @@ jobs:
 
       - name: Build plugin
         run: |
+          sudo apt update
+          sudo apt install -y libswresample-dev libavformat-dev
           OBS_QT_VERSION_MAJOR=${{ steps.obsdeps.outputs.OBS_QT_VERSION_MAJOR }}
           mkdir build
           cd build
