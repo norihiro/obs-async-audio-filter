@@ -65,6 +65,28 @@ if(USE_FFMPEG_SWRESAMPLE)
 endif()
 
 if (USE_ERIKD_LIBSAMPLERATE)
+	# Try to find libsamplerate in the system
+	find_package(PkgConfig)
+	if(PKG_CONFIG_FOUND)
+		pkg_check_modules(PC_LIBSAMPLERATE samplerate)
+	endif()
+
+	target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+		src/resampler-erikd.c
+	)
+endif()
+
+if (USE_ERIKD_LIBSAMPLERATE AND PC_LIBSAMPLERATE_FOUND)
+	target_include_directories(${CMAKE_PROJECT_NAME}
+		PRIVATE
+		${PC_LIBSAMPLERATE_INCLUDE_DIRS}
+	)
+	target_link_libraries(${CMAKE_PROJECT_NAME}
+		${PC_LIBSAMPLERATE_LIBRARIES}
+	)
+endif()
+
+if (USE_ERIKD_LIBSAMPLERATE AND NOT PC_LIBSAMPLERATE_FOUND)
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/libsamplerate/cmake/")
 	set(BUILD_SHARED_LIBS OFF)
 	set(LIBSAMPLERATE_ENABLE_SINC_FAST_CONVERTER OFF)
@@ -73,9 +95,6 @@ if (USE_ERIKD_LIBSAMPLERATE)
 	add_subdirectory(deps/libsamplerate)
 	target_link_libraries(${CMAKE_PROJECT_NAME}
 		samplerate
-	)
-	target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-		src/resampler-erikd.c
 	)
 endif()
 
