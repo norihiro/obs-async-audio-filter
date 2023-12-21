@@ -102,7 +102,7 @@ uint32_t resampler_audio(resampler_t *rs, float *data[], uint32_t frames, uint64
 	for (uint32_t i = 0; i < rs->channels; i++)
 		data[i] = out_data[i];
 
-	if (*pts >= delay0_ns)
+	if (*pts >= (uint64_t)delay0_ns)
 		*pts -= delay0_ns;
 	else
 		*pts = 0;
