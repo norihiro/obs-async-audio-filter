@@ -27,10 +27,11 @@ Increase or decrease verbosity in the log file.
 
 ## Recommended settings
 
-If you are using this filter with other video sources,
-I recommend to set your video source(s) to unbuffered mode.
+Recommended setting for each source type is listed below.
 | Type | Source settings | This filter settings |
 | --- | --- | --- |
+| Audio Output Capture, Audio Input Capture | Uncheck `Use Device Timestamps` | Leave it as it is. |
+| Application Audio Capture | n/a | Enable `Use OBS time instead of source time`. |
 | V4L2 | Uncheck `Use Buffering` | Leave it as it is. |
 | Decklink | Uncheck `Use Buffering` | Leave it as it is. |
 | Video Capture Device on macOS | Uncheck `Use Buffering` | Leave it as it is. |
