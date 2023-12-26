@@ -4,7 +4,8 @@
 #include "resampler.h"
 #include "samplerate.h"
 
-#define BUFFER_SIZE_MARGIN 4
+#define BUFFER_SIZE_MARGIN 8
+#define BUFFER_SIZE_ALIGN 8
 
 typedef DARRAY(float) float_array_t;
 
@@ -102,10 +103,11 @@ static uint32_t erikd_resampler_audio(resampler_t *rs, float *data[], uint32_t f
 
 	resampler_init_if_necessary(rs, channels);
 
-	da_resize(ctx->buffer1, frames * channels);
-	planar_to_packed(ctx->buffer1.array, (const float **)data, channels, frames);
+	uint32_t buffer_frames = (frames + BUFFER_SIZE_MARGIN + BUFFER_SIZE_ALIGN - 1) & ~(BUFFER_SIZE_ALIGN - 1);
+	da_resize(ctx->buffer1, buffer_frames * channels);
+	da_resize(ctx->buffer2, buffer_frames * channels);
 
-	da_resize(ctx->buffer2, (frames + BUFFER_SIZE_MARGIN) * channels);
+	planar_to_packed(ctx->buffer1.array, (const float **)data, channels, frames);
 
 	SRC_DATA src_data = {
 		.data_in = ctx->buffer1.array,
@@ -130,7 +132,7 @@ static uint32_t erikd_resampler_audio(resampler_t *rs, float *data[], uint32_t f
 	}
 
 	for (uint32_t c = 0; c < channels; c++)
-		data[c] = ctx->buffer1.array + c * src_data.output_frames_gen;
+		data[c] = ctx->buffer1.array + c * buffer_frames;
 	packed_to_planar(data, ctx->buffer2.array, channels, src_data.output_frames_gen);
 
 	return src_data.output_frames_gen;

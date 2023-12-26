@@ -7,7 +7,8 @@
 
 #include "resampler.h"
 
-#define BUFFER_SIZE_MARGIN 4
+#define BUFFER_SIZE_MARGIN 8
+#define BUFFER_SIZE_ALIGN 8
 
 typedef DARRAY(float) float_array_t;
 
@@ -140,7 +141,7 @@ static uint32_t ff_resampler_audio(resampler_t *rs, float *data[], uint32_t fram
 	struct SwrContext *swr = ctx->swr;
 
 	int64_t delay0_ns = swr_get_delay(swr, 1000000000LL);
-	uint32_t out_max_samples = frames + BUFFER_SIZE_MARGIN;
+	uint32_t out_max_samples = (frames + BUFFER_SIZE_MARGIN + BUFFER_SIZE_ALIGN - 1) & ~(BUFFER_SIZE_ALIGN - 1);
 
 	da_resize(ctx->raw_buffer, out_max_samples * ctx->channels);
 	float *out_data[MAX_AUDIO_CHANNELS] = {NULL};
