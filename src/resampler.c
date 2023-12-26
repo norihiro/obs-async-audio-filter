@@ -14,6 +14,8 @@ static const struct resampler_type *types[] = {
 
 static inline const struct resampler_type *find_type(const char *type_name)
 {
+	static_assert(sizeof(types) > sizeof(types[0]), "Need at least one valid entry.");
+
 	if (!type_name)
 		return types[0];
 
