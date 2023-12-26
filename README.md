@@ -43,17 +43,40 @@ Recommended setting for each source type is listed below.
 
 ## Build and install
 ### Linux
-Use cmake to build on Linux. After checkout, run these commands.
+Install `libsamplerate`. Use `apt` as below on Ubuntu-22.04.
+```shell
+sudo apt install libsamplerate0 libsamplerate0-dev
 ```
-sed -i 's;${CMAKE_INSTALL_FULL_LIBDIR};/usr/lib;' CMakeLists.txt
+
+Use cmake to build on Linux. After checkout, run these commands.
+The flags `-D USE_ERIKD_LIBSAMPLERATE_DEPS=OFF -D USE_ERIKD_LIBSAMPLERATE_SYSTEM=ON` are optional
+but recommended to ensure `libsamplerate` from the system will be linked.
+```shell
 mkdir build && cd build
-cmake -DCMAKE_INSTALL_PREFIX=/usr ..
+cmake \
+  -D CMAKE_INSTALL_PREFIX=/usr \
+  -D USE_ERIKD_LIBSAMPLERATE_DEPS=OFF \
+  -D USE_ERIKD_LIBSAMPLERATE_SYSTEM=ON \
+  ..
+make
+sudo make install
+```
+
+If you prefer `libswresample` instead of `libsamplerate`, configure with these flags.
+```shell
+mkdir build && cd build
+cmake \
+  -D CMAKE_INSTALL_PREFIX=/usr \
+  -D USE_ERIKD_LIBSAMPLERATE_DEPS=OFF \
+  -D USE_ERIKD_LIBSAMPLERATE_SYSTEM=OFF \
+  -D USE_FFMPEG_SWRESAMPLE=ON \
+  ..
 make
 sudo make install
 ```
 
 ### macOS
-Use cmake to build on Linux. After checkout, run these commands.
+Use cmake to build on macOS. After checkout with a submodule, run these commands.
 ```
 mkdir build && cd build
 cmake ..
