@@ -48,6 +48,12 @@ static inline void resampler_init_if_necessary(resampler_t *rs, uint32_t channel
 
 	resampler_deinit(ctx);
 
+	static bool version_printed = false;
+	if (!version_printed) {
+		blog(LOG_INFO, "Initializing SRC instance of %s", src_get_version());
+		version_printed = true;
+	}
+
 	int error = 0;
 	ctx->src_state = src_new(SRC_SINC_BEST_QUALITY, channels, &error);
 	ctx->pts_offset = 0;
