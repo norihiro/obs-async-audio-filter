@@ -18,8 +18,26 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(libobs REQUIRED)
 include(cmake/ObsPluginHelpers.cmake)
 
+find_package(PkgConfig)
+if(PKG_CONFIG_FOUND)
+	pkg_check_modules(PC_LIBSAMPLERATE samplerate)
+endif()
+
+if(PC_LIBSAMPLERATE_FOUND)
+	option(USE_ERIKD_LIBSAMPLERATE_DEPS "Use libsamplerate by Erik de Castro Lopo in deps" OFF)
+	option(USE_ERIKD_LIBSAMPLERATE_SYSTEM "Use libsamplerate by Erik de Castro Lopo in the system" ON)
+else()
+	option(USE_ERIKD_LIBSAMPLERATE_DEPS "Use libsamplerate by Erik de Castro Lopo in deps" ON)
+	option(USE_ERIKD_LIBSAMPLERATE_SYSTEM "Use libsamplerate by Erik de Castro Lopo in the system" OFF)
+endif()
+
 option(USE_FFMPEG_SWRESAMPLE "Use swresample from FFmpeg" OFF)
-option(USE_ERIKD_LIBSAMPLERATE "Use libsamplerate by Erik de Castro Lopo" ON)
+
+if(USE_ERIKD_LIBSAMPLERATE_DEPS OR USE_ERIKD_LIBSAMPLERATE_SYSTEM)
+	set(USE_ERIKD_LIBSAMPLERATE ON)
+else()
+	set(USE_ERIKD_LIBSAMPLERATE OFF)
+endif()
 
 if(USE_FFMPEG_SWRESAMPLE)
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/finders")
@@ -65,28 +83,23 @@ if(USE_FFMPEG_SWRESAMPLE)
 endif()
 
 if (USE_ERIKD_LIBSAMPLERATE)
-	# Try to find libsamplerate in the system
-	find_package(PkgConfig)
-	if(PKG_CONFIG_FOUND)
-		pkg_check_modules(PC_LIBSAMPLERATE samplerate)
-	endif()
-
 	target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 		src/resampler-erikd.c
 	)
 endif()
 
-if (USE_ERIKD_LIBSAMPLERATE AND PC_LIBSAMPLERATE_FOUND)
+if(USE_ERIKD_LIBSAMPLERATE_SYSTEM)
 	target_include_directories(${CMAKE_PROJECT_NAME}
 		PRIVATE
 		${PC_LIBSAMPLERATE_INCLUDE_DIRS}
 	)
-	target_link_libraries(${CMAKE_PROJECT_NAME}
-		${PC_LIBSAMPLERATE_LIBRARIES}
+	target_link_options(${CMAKE_PROJECT_NAME}
+		PRIVATE
+		${PC_LIBSAMPLERATE_LDFLAGS}
 	)
 endif()
 
-if (USE_ERIKD_LIBSAMPLERATE AND NOT PC_LIBSAMPLERATE_FOUND)
+if(USE_ERIKD_LIBSAMPLERATE_DEPS)
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/libsamplerate/cmake/")
 	set(BUILD_SHARED_LIBS OFF)
 	set(LIBSAMPLERATE_ENABLE_SINC_FAST_CONVERTER OFF)
