@@ -207,10 +207,12 @@ jobs:
             27)
               (cd release/${PLUGIN_NAME} && ../../ci/macos/change-rpath.sh -obs ${{ matrix.obs }} -lib lib/ bin/${PLUGIN_NAME}.so)
               cp LICENSE release/${PLUGIN_NAME}/data/LICENSE-$PLUGIN_NAME
+              cp deps/libsamplerate/COPYING release/${PLUGIN_NAME}/data/LICENSE-libsamplerate
               ;;
             28)
               (cd release/${PLUGIN_NAME}.plugin/Contents && ../../../ci/macos/change-rpath.sh -obs 28 -lib lib/ MacOS/${PLUGIN_NAME})
               cp LICENSE release/${PLUGIN_NAME}.plugin/Contents/Resources/LICENSE-$PLUGIN_NAME
+              cp deps/libsamplerate/COPYING release/${PLUGIN_NAME}.plugin/Contents/Resources/LICENSE-libsamplerate
               ;;
           esac
 
