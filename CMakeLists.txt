@@ -18,11 +18,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(libobs REQUIRED)
 include(cmake/ObsPluginHelpers.cmake)
 
-if(OS_LINUX)
-	option(USE_FFMPEG_SWRESAMPLE "Use swresample from FFmpeg" ON)
-else()
-	option(USE_FFMPEG_SWRESAMPLE "Use swresample from FFmpeg" OFF)
-endif()
+option(USE_FFMPEG_SWRESAMPLE "Use swresample from FFmpeg" OFF)
+option(USE_ERIKD_LIBSAMPLERATE "Use libsamplerate by Erik de Castro Lopo" ON)
 
 if(USE_FFMPEG_SWRESAMPLE)
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/finders")
@@ -64,6 +61,21 @@ if(USE_FFMPEG_SWRESAMPLE)
 	target_link_libraries(${CMAKE_PROJECT_NAME}
 		FFmpeg::swresample
 		FFmpeg::avutil
+	)
+endif()
+
+if (USE_ERIKD_LIBSAMPLERATE)
+	list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/libsamplerate/cmake/")
+	set(BUILD_SHARED_LIBS OFF)
+	set(LIBSAMPLERATE_ENABLE_SINC_FAST_CONVERTER OFF)
+	set(LIBSAMPLERATE_ENABLE_SINC_MEDIUM_CONVERTER OFF)
+	set(LIBSAMPLERATE_INSTALL_PKGCONFIG_MODULE OFF)
+	add_subdirectory(deps/libsamplerate)
+	target_link_libraries(${CMAKE_PROJECT_NAME}
+		samplerate
+	)
+	target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+		src/resampler-erikd.c
 	)
 endif()
 

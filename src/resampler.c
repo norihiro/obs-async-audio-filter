@@ -3,9 +3,13 @@
 #include "plugin-macros.generated.h"
 #include "resampler.h"
 
+extern const struct resampler_type erikd_resampler_type;
 extern const struct resampler_type ffmpeg_resampler_type;
 
 static const struct resampler_type *types[] = {
+#ifdef USE_ERIKD_LIBSAMPLERATE
+	&erikd_resampler_type,
+#endif
 #ifdef USE_FFMPEG_SWRESAMPLE
 	&ffmpeg_resampler_type,
 #endif
