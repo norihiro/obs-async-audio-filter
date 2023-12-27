@@ -18,6 +18,32 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(libobs REQUIRED)
 include(cmake/ObsPluginHelpers.cmake)
 
+find_package(PkgConfig)
+if(PKG_CONFIG_FOUND)
+	pkg_check_modules(PC_LIBSAMPLERATE samplerate)
+endif()
+
+if(PC_LIBSAMPLERATE_FOUND)
+	option(USE_ERIKD_LIBSAMPLERATE_DEPS "Use libsamplerate by Erik de Castro Lopo in deps" OFF)
+	option(USE_ERIKD_LIBSAMPLERATE_SYSTEM "Use libsamplerate by Erik de Castro Lopo in the system" ON)
+else()
+	option(USE_ERIKD_LIBSAMPLERATE_DEPS "Use libsamplerate by Erik de Castro Lopo in deps" ON)
+	option(USE_ERIKD_LIBSAMPLERATE_SYSTEM "Use libsamplerate by Erik de Castro Lopo in the system" OFF)
+endif()
+
+option(USE_FFMPEG_SWRESAMPLE "Use swresample from FFmpeg" OFF)
+
+if(USE_ERIKD_LIBSAMPLERATE_DEPS OR USE_ERIKD_LIBSAMPLERATE_SYSTEM)
+	set(USE_ERIKD_LIBSAMPLERATE ON)
+else()
+	set(USE_ERIKD_LIBSAMPLERATE OFF)
+endif()
+
+if(USE_FFMPEG_SWRESAMPLE)
+	list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/finders")
+	find_package(FFmpeg REQUIRED COMPONENTS avutil swresample)
+endif()
+
 configure_file(
 	src/plugin-macros.h.in
 	../src/plugin-macros.generated.h
@@ -36,16 +62,54 @@ configure_file(
 	../ci/ci_includes.generated.cmd
 )
 
-set(PLUGIN_SOURCES
+add_library(${CMAKE_PROJECT_NAME} MODULE
 	src/plugin-main.c
 	src/async-audio-filter.c
+	src/resampler.c
 )
-
-add_library(${CMAKE_PROJECT_NAME} MODULE ${PLUGIN_SOURCES})
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
 	OBS::libobs
 )
+
+if(USE_FFMPEG_SWRESAMPLE)
+	target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+		src/resampler-ffmpeg.c
+	)
+	target_link_libraries(${CMAKE_PROJECT_NAME}
+		FFmpeg::swresample
+		FFmpeg::avutil
+	)
+endif()
+
+if (USE_ERIKD_LIBSAMPLERATE)
+	target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+		src/resampler-erikd.c
+	)
+endif()
+
+if(USE_ERIKD_LIBSAMPLERATE_SYSTEM)
+	target_include_directories(${CMAKE_PROJECT_NAME}
+		PRIVATE
+		${PC_LIBSAMPLERATE_INCLUDE_DIRS}
+	)
+	target_link_options(${CMAKE_PROJECT_NAME}
+		PRIVATE
+		${PC_LIBSAMPLERATE_LDFLAGS}
+	)
+endif()
+
+if(USE_ERIKD_LIBSAMPLERATE_DEPS)
+	list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/libsamplerate/cmake/")
+	set(BUILD_SHARED_LIBS OFF)
+	set(LIBSAMPLERATE_ENABLE_SINC_FAST_CONVERTER OFF)
+	set(LIBSAMPLERATE_ENABLE_SINC_MEDIUM_CONVERTER OFF)
+	set(LIBSAMPLERATE_INSTALL_PKGCONFIG_MODULE OFF)
+	add_subdirectory(deps/libsamplerate)
+	target_link_libraries(${CMAKE_PROJECT_NAME}
+		samplerate
+	)
+endif()
 
 if(OS_WINDOWS)
 	# Enable Multicore Builds and disable FH4 (to not depend on VCRUNTIME140_1.DLL when building with VS2019)

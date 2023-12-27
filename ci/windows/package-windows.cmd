@@ -8,6 +8,7 @@ set /p PackageVersion=<package-version.txt
 del package-version.txt
 
 copy ..\LICENSE          ..\release\data\obs-plugins\%PluginName%\LICENCE-%PluginName%.txt
+copy ..\deps\libsamplerate\COPYING ..\release\data\obs-plugins\%PluginName%\LICENCE-libsamplerate.txt
 
 REM Package ZIP archive
 7z a "%PluginName%-%PackageVersion%-obs%1-Windows.zip" "..\release\*"
