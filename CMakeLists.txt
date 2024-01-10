@@ -57,10 +57,6 @@ configure_file(
 	ci/ci_includes.sh.in
 	../ci/ci_includes.generated.sh
 )
-configure_file(
-	ci/ci_includes.cmd.in
-	../ci/ci_includes.generated.cmd
-)
 
 add_library(${CMAKE_PROJECT_NAME} MODULE
 	src/plugin-main.c
