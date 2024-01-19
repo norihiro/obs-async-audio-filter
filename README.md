@@ -14,6 +14,9 @@ causes OBS to drop a bunch of audio frames or to introduce silent frames.
 This filter will detect the difference and periodically add or remove an audio sample.
 Since just one sample is added or removed at each time, distortion should not be noticable.
 
+This filter won't resolve asynchronous issue when monitoring the audio.
+In some cases, the monitoring device has yet another sampling clock other than OBS Studio or source audio.
+
 ## Properties
 
 ### Use OBS time
