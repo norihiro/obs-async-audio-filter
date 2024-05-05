@@ -42,7 +42,7 @@ Recommended setting for each source type is listed below.
 | NDI Source | Set `Latency Mode` to `Low (experimental)` | Enable `Use OBS time instead of source time`. |
 
 > [!NOTE]
-> Do not use this plugin for local file players such as Media Source and VLC Video Source.
+> Do not apply this plugin to a local file player such as Media Source and VLC Video Source.
 
 ## Build and install
 ### Linux
