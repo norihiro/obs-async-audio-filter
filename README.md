@@ -80,7 +80,7 @@ sudo make install
 
 ### macOS
 Use cmake to build on macOS. After checkout with a submodule, run these commands.
-```
+```shell
 mkdir build && cd build
 cmake ..
 make
