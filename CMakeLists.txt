@@ -8,6 +8,7 @@ set(MACOS_BUNDLEID "net.nagater.obs-async-audio-filter")
 set(ID_PREFIX "net.nagater.obs.")
 set(MACOS_PACKAGE_UUID "51FA3068-9263-4F49-8426-FD789736BFCC")
 set(MACOS_INSTALLER_UUID "D9714285-DD24-48E0-B90C-8BE2AE026754")
+set(PLUGIN_URL "https://obsproject.com/forum/resources/asynchronous-audio-filter.1482/")
 
 set(LINUX_MAINTAINER_EMAIL "norihiro@nagater.net")
 
