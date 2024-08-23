@@ -35,6 +35,7 @@ else()
 endif()
 
 option(USE_FFMPEG_SWRESAMPLE "Use swresample from FFmpeg" OFF)
+option(USE_NEXT_AUDIO_TS "Use the new API obs_source_get_next_audio_timestamp" ON)
 
 if(USE_ERIKD_LIBSAMPLERATE_DEPS OR USE_ERIKD_LIBSAMPLERATE_SYSTEM)
 	set(USE_ERIKD_LIBSAMPLERATE ON)
