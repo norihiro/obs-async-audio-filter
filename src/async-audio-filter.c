@@ -110,6 +110,15 @@ static inline int64_t abs_s64(int64_t x)
 	return x < 0 ? -x : x;
 }
 
+static inline int64_t clip_s64(int64_t x, int64_t limit)
+{
+	if (x < -limit)
+		return -limit;
+	if (x > limit)
+		return limit;
+	return x;
+}
+
 static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_data *audio)
 {
 	struct source_s *s = data;
@@ -127,12 +136,13 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 	s->audio_buffer.frames = resampler_audio(s->rs, (float **)s->audio_buffer.data, audio->frames, &ts);
 	s->audio_buffer.timestamp = ts;
 
+	int64_t e = (int64_t)ts - (int64_t)s->audio_ns;
+
 	if (s->state == state_start) {
 		if (s->audio_ns >= STARTUP_TIMEOUT_NS)
 			enter_state_locking(s);
 	}
 	else if (s->state == state_locking) {
-		int64_t e = (int64_t)ts - (int64_t)s->audio_ns;
 		s->error_sum_ns += e;
 		s->error_cnt += 1;
 
@@ -140,8 +150,6 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 			enter_state_locked(s, ts);
 	}
 	else if (s->state == state_locked) {
-		int64_t e = (int64_t)ts - (int64_t)s->audio_ns;
-
 		if (abs_s64(e) >= TS_SMOOTHING_THRESHOLD) {
 			blog(LOG_WARNING, "lock failed due to large error, %f us", e * 1e-3);
 			s->audio_ns = 0;
@@ -150,15 +158,9 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 			goto end;
 		}
 
-		int64_t e_max = audio->frames * 1000000000LL / fs;
-		if (abs_s64(e) > e_max) {
-			if (e < 0)
-				e = -e_max;
-			else
-				e = e_max;
-		}
+		int64_t e_clip = clip_s64(e, audio->frames * 1000000000LL / fs);
 
-		lag_lead_filter_set_error_ns(&s->lf, e);
+		lag_lead_filter_set_error_ns(&s->lf, e_clip);
 
 		lag_lead_filter_tick(&s->lf, fs, audio->frames);
 
@@ -171,7 +173,6 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 	int add_remove = (int)s->audio_buffer.frames - (int)audio->frames;
 
 	if (add_remove && s->state == state_locked) {
-		int64_t e = (int64_t)ts - (int64_t)s->audio_ns;
 		double comp = lag_lead_filter_get_drift(&s->lf);
 		if (s->verbosity >= 1)
 			blog(LOG_INFO,
