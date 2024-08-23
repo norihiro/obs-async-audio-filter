@@ -33,12 +33,13 @@ struct source_s
 	int verbosity;
 
 	// internal data
+#ifndef USE_NEXT_AUDIO_TS
 	enum state_e state;
-
-	struct lag_lead_filter lf;
-
 	uint64_t audio_ns;
 	int audio_ns_rem;
+#endif
+
+	struct lag_lead_filter lf;
 
 	int64_t error_sum_ns;
 	int error_cnt;
@@ -48,6 +49,13 @@ struct source_s
 	struct obs_audio_data audio_buffer;
 
 	resampler_t *rs;
+
+#ifdef USE_NEXT_AUDIO_TS
+	bool callback_added;
+	obs_source_t *parent;
+	uint64_t expected_audio_ts;
+	int64_t last_error_ns;
+#endif // USE_NEXT_AUDIO_TS
 };
 
 static const char *get_name(void *type_data)
@@ -82,6 +90,7 @@ static void update(void *data, obs_data_t *settings)
 	lag_lead_filter_update(&s->lf);
 }
 
+#ifndef USE_NEXT_AUDIO_TS
 static void enter_state_locking(struct source_s *s)
 {
 	blog(LOG_INFO, "locking the audio...");
@@ -104,6 +113,7 @@ static void enter_state_locked(struct source_s *s, uint64_t audio_ts)
 	lag_lead_filter_reset(&s->lf);
 	s->cnt_untouched_frames = 0;
 }
+#endif
 
 static inline int64_t abs_s64(int64_t x)
 {
@@ -119,6 +129,37 @@ static inline int64_t clip_s64(int64_t x, int64_t limit)
 	return x;
 }
 
+#ifdef USE_NEXT_AUDIO_TS
+static void audio_capture_callback(void *param, obs_source_t *source, const struct audio_data *audio_data, bool muted)
+{
+	UNUSED_PARAMETER(muted);
+	struct source_s *s = param;
+
+	/*
+	 * When there is no more filters, `audio_data->timestamp` should be
+	 * same as the `timestamp` returned by `async_filter_audio`.
+	 * However, the plugin cannot block more filters at the later stage,
+	 * use this callback to get the final timestamp.
+	 */
+
+	if (audio_data->timestamp && s->expected_audio_ts) {
+		s->last_error_ns = (int64_t)audio_data->timestamp - (int64_t)s->expected_audio_ts;
+	}
+	s->expected_audio_ts = obs_source_get_next_audio_timestamp(source);
+}
+
+static void add_callback(struct source_s *s)
+{
+	obs_source_t *parent = obs_filter_get_parent(s->context);
+	if (!parent)
+		return;
+
+	obs_source_add_audio_capture_callback(parent, audio_capture_callback, s);
+	s->parent = parent;
+	s->callback_added = true;
+}
+#endif // USE_NEXT_AUDIO_TS
+
 static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_data *audio)
 {
 	struct source_s *s = data;
@@ -129,6 +170,11 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 	if (!s->rs)
 		s->rs = resampler_create(NULL);
 
+#ifdef USE_NEXT_AUDIO_TS
+	if (!s->callback_added)
+		add_callback(s);
+#endif // USE_NEXT_AUDIO_TS
+
 	const uint32_t fs = audio_output_get_sample_rate(obs_get_audio());
 	uint64_t ts = s->use_obs_time ? os_gettime_ns() - audio->frames * 1000000000LL / fs : audio->timestamp;
 
@@ -136,8 +182,13 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 	s->audio_buffer.frames = resampler_audio(s->rs, (float **)s->audio_buffer.data, audio->frames, &ts);
 	s->audio_buffer.timestamp = ts;
 
+#ifndef USE_NEXT_AUDIO_TS
 	int64_t e = (int64_t)ts - (int64_t)s->audio_ns;
+#else
+	int64_t e = s->last_error_ns;
+#endif
 
+#ifndef USE_NEXT_AUDIO_TS
 	if (s->state == state_start) {
 		if (s->audio_ns >= STARTUP_TIMEOUT_NS)
 			enter_state_locking(s);
@@ -150,11 +201,16 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 			enter_state_locked(s, ts);
 	}
 	else if (s->state == state_locked) {
+#endif
 		if (abs_s64(e) >= TS_SMOOTHING_THRESHOLD) {
 			blog(LOG_WARNING, "lock failed due to large error, %f us", e * 1e-3);
+#ifndef USE_NEXT_AUDIO_TS
 			s->audio_ns = 0;
 			s->audio_ns_rem = 0;
 			s->state = state_start;
+#else
+		lag_lead_filter_reset(&s->lf);
+#endif
 			goto end;
 		}
 
@@ -168,11 +224,17 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 		// Add `comp` frames for every seconds
 
 		resampler_compensate(s->rs, comp);
+#ifndef USE_NEXT_AUDIO_TS
 	}
+#endif
 
 	int add_remove = (int)s->audio_buffer.frames - (int)audio->frames;
 
+#ifndef USE_NEXT_AUDIO_TS
 	if (add_remove && s->state == state_locked) {
+#else
+	if (add_remove) {
+#endif
 		double comp = lag_lead_filter_get_drift(&s->lf);
 		if (s->verbosity >= 1)
 			blog(LOG_INFO,
@@ -188,11 +250,13 @@ static struct obs_audio_data *async_filter_audio(void *data, struct obs_audio_da
 	if (s->verbosity >= 2 && (add_remove || (s->cnt_untouched_frames / audio->frames % 128) == 0))
 		blog(LOG_INFO, "vc1: %f vc2: %f", s->lf.vc1, s->lf.vc2);
 
+#ifndef USE_NEXT_AUDIO_TS
 	if (s->audio_buffer.frames) {
 		uint64_t x = 1000000000LL * s->audio_buffer.frames + s->audio_ns_rem;
 		s->audio_ns += x / fs;
 		s->audio_ns_rem = x % fs;
 	}
+#endif
 
 end:
 	return &s->audio_buffer;
@@ -203,6 +267,8 @@ static void *create(obs_data_t *settings, obs_source_t *source)
 	struct source_s *s = bzalloc(sizeof(struct source_s));
 	s->context = source;
 
+	lag_lead_filter_reset(&s->lf);
+
 	update(s, settings);
 
 	return s;
@@ -211,6 +277,11 @@ static void *create(obs_data_t *settings, obs_source_t *source)
 static void destroy(void *data)
 {
 	struct source_s *s = data;
+
+#ifdef USE_NEXT_AUDIO_TS
+	if (s->callback_added)
+		obs_source_remove_audio_capture_callback(s->parent, audio_capture_callback, s);
+#endif
 
 	if (s->rs)
 		resampler_destroy(s->rs);
