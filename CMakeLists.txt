@@ -16,8 +16,10 @@ set(LINUX_MAINTAINER_EMAIL "norihiro@nagater.net")
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(libobs REQUIRED)
-include(cmake/ObsPluginHelpers.cmake)
+if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
+	find_package(libobs REQUIRED)
+	include(cmake/ObsPluginHelpers.cmake)
+endif()
 
 find_package(PkgConfig)
 if(PKG_CONFIG_FOUND)
@@ -47,46 +49,39 @@ endif()
 
 configure_file(
 	src/plugin-macros.h.in
-	../src/plugin-macros.generated.h
-)
-configure_file(
-	installer/installer-Windows.iss.in
-	../installer/installer-Windows.generated.iss
+	plugin-macros.generated.h
 )
 
-configure_file(
-	ci/ci_includes.sh.in
-	../ci/ci_includes.generated.sh
-)
-
-add_library(${CMAKE_PROJECT_NAME} MODULE
+add_library(${PROJECT_NAME} MODULE
 	src/plugin-main.c
 	src/async-audio-filter.c
 	src/resampler.c
 )
 
-target_link_libraries(${CMAKE_PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME}
 	OBS::libobs
 )
 
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+
 if(USE_FFMPEG_SWRESAMPLE)
-	target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+	target_sources(${PROJECT_NAME} PRIVATE
 		src/resampler-ffmpeg.c
 	)
-	target_link_libraries(${CMAKE_PROJECT_NAME}
+	target_link_libraries(${PROJECT_NAME}
 		FFmpeg::swresample
 		FFmpeg::avutil
 	)
 endif()
 
 if (USE_ERIKD_LIBSAMPLERATE)
-	target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+	target_sources(${PROJECT_NAME} PRIVATE
 		src/resampler-erikd.c
 	)
 endif()
 
 if(USE_ERIKD_LIBSAMPLERATE_SYSTEM)
-	target_include_directories(${CMAKE_PROJECT_NAME}
+	target_include_directories(${PROJECT_NAME}
 		PRIVATE
 		${PC_LIBSAMPLERATE_INCLUDE_DIRS}
 	)
@@ -94,7 +89,7 @@ if(USE_ERIKD_LIBSAMPLERATE_SYSTEM)
 		NAMES ${PC_LIBSAMPLERATE_LIBRARIES}
 		HINTS ${PC_LIBSAMPLERATE_LIBRARY_DIRS}
 	)
-	target_link_libraries(${CMAKE_PROJECT_NAME}
+	target_link_libraries(${PROJECT_NAME}
 		${SAMPLERATE}
 	)
 endif()
@@ -107,7 +102,7 @@ if(USE_ERIKD_LIBSAMPLERATE_DEPS)
 	set(LIBSAMPLERATE_INSTALL_PKGCONFIG_MODULE OFF)
 	option(BUILD_TESTING "" OFF) # ON by default in CTest
 	add_subdirectory(deps/libsamplerate)
-	target_link_libraries(${CMAKE_PROJECT_NAME}
+	target_link_libraries(${PROJECT_NAME}
 		samplerate
 	)
 endif()
@@ -119,23 +114,38 @@ if(OS_WINDOWS)
 		add_definitions("-D_USE_MATH_DEFINES")
 	endif()
 
-	target_link_libraries(${CMAKE_PROJECT_NAME} OBS::w32-pthreads)
+	target_link_libraries(${PROJECT_NAME} OBS::w32-pthreads)
 endif()
 
 if(OS_LINUX)
-	target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -Wall -Wextra)
-	target_link_options(${CMAKE_PROJECT_NAME} PRIVATE "-Wl,-z,defs")
+	target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
+	target_link_options(${PROJECT_NAME} PRIVATE -Wl,-z,defs)
 endif()
 
 if(APPLE)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -fvisibility=default")
 
-	set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES PREFIX "")
+	set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "")
 	set(MACOSX_PLUGIN_GUI_IDENTIFIER "${MACOS_BUNDLEID}")
-	set(MACOSX_PLUGIN_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION}")
+	set(MACOSX_PLUGIN_BUNDLE_VERSION "${PROJECT_VERSION}")
 	set(MACOSX_PLUGIN_SHORT_VERSION_STRING "1")
 endif()
 
-setup_plugin_target(${CMAKE_PROJECT_NAME})
+setup_plugin_target(${PROJECT_NAME})
 
-configure_file(installer/installer-macOS.pkgproj.in installer-macOS.generated.pkgproj)
+if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
+	configure_file(
+		ci/ci_includes.sh.in
+		ci/ci_includes.generated.sh
+	)
+
+	configure_file(
+		installer/installer-macOS.pkgproj.in
+		installer-macOS.generated.pkgproj
+	)
+
+	configure_file(
+		installer/installer-Windows.iss.in
+		installer-Windows.generated.iss
+	)
+endif()
