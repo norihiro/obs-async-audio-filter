@@ -9,15 +9,6 @@
 #define LOCKING_TIME_NS (1 * 1000LL * 1000LL * 1000LL)
 #define TS_SMOOTHING_THRESHOLD 70000000LL
 
-#define CASSERT(predicate)                                    \
-	do {                                                  \
-		typedef char assertion_[2 * !!(predicate)-1]; \
-		assertion_ *unused;                           \
-		(void)unused;                                 \
-	} while (0)
-
-#define FLTP(audio_data, plane, frame) (((float *)(audio_data)[plane])[frame])
-
 enum state_e {
 	state_start = 0,
 	state_locking,
