@@ -1,4 +1,4 @@
-# OBS Asynchronous Audio Filter Plugin
+# Asynchronous Audio Filter Plugin for OBS Studio
 
 ## Introduction
 
