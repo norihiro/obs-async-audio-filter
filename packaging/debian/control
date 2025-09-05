@@ -1,0 +1,22 @@
+Source: async-audio-filter-plugin-for-obs
+Section: video
+Priority: optional
+Maintainer: Norihiro Kamae <norihiro-ppa-plugins-for-obs-studio@nagater.net>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ cmake,
+ obs-studio,
+ libsamplerate0-dev
+Conflicts: obs-async-audio-filter
+Standards-Version: 4.6.2
+Homepage: https://github.com/norihiro/obs-async-audio-filter
+
+Package: async-audio-filter-plugin-for-obs
+Architecture: any
+Multi-Arch: foreign
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+Description: plugin to fix an asynchronous audio by synchronizing to the master clock of OBS Studio
+
