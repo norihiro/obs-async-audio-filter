@@ -2,20 +2,67 @@
 
 ## Introduction
 
-This plugin tries to fix an asynchronous audio by synchronizing to the master clock of OBS Studio.
+This plugin attempts to fix asynchronous audio by synchronizing to the master clock of OBS Studio.
 
 OBS Studio is running with a clock provided by the OS.
 On Linux, the clock is synchronized to the NTP server.
-On the other hand, some audio interfaces are running with their own clock to sample the audio,
-which is asynchronous from the OBS's clock.
-The difference of these clocks causes the audio buffer to reach overflow or underflow after several minutes or more and
-causes OBS to drop a bunch of audio frames or to introduce silent frames.
+In contrast, audio interfaces often use their own internal clocks to sample audio,
+which are asynchronous relative to OBS's clock.
+The difference between these clocks causes the audio buffer to eventually overflow or underflow after several minutes or more,
+resulting in OBS dropping a number of audio frames or introducing silent frames.
 
-This filter will detect the difference and periodically add or remove an audio sample.
-Since just one sample is added or removed at each time, distortion should not be noticable.
+This filter detects the clock difference and slowly adjust the compensation amount.
+Since the compensation will take several minutes, distortion should not be noticable.
 
-This filter won't resolve asynchronous issue when monitoring the audio.
-In some cases, the monitoring device has yet another sampling clock other than OBS Studio or source audio.
+> [!Note]
+> This filter won't resolve asynchronous issues when monitoring audio.
+> In some cases, the monitoring device has yet another sampling clock other than OBS Studio or source audio.
+
+## Background
+
+### In short: Why Do Audio Glitches Occur in OBS Studio?
+
+OBS Studio is designed to capture and mix audio from multiple sources simultaniously
+such as microphones, capture cards, desktop audio.
+Each of these sources is typically driven by its own independent hardware clock.
+Even if set to the same sample rate, they drift over time, leading to glitches.
+
+### Independent Clocks
+Every audio device (USB microphones, HDMI capture cards, sound cards, etc.)
+uses its own hardware clock to time audio sampling.
+Even if all devices are configured to the same nominal sample rate (e.g., 48000 Hz),
+their actual hardware clocks will run at slightly different speeds due to manufacturing tolerances, temperature, and environmental factors.
+
+### Clock Drift
+Over time, these tiny differences in clock speed (even a few parts per million) accumulate.
+Each source provides audio data at a steady rate, according to its own clock,
+but that rate does not exactly match the internal clock in OBS Studio, which is the clock of your OS.
+
+### Buffer Overruns/Underruns
+This drift causes the number of audio samples produced by each device to slowly diverge from what OBS Studio expects.
+As a result, overruns or underruns will occur.
+- **Overruns:** If a source's clock is slightly faster than OBS's, its buffer fills up and excess samples must be dropped, causing pops or audio artifacts.
+- **Underruns:** If a source's clock is slightly slower, the buffer empties and OBS runs out of samples, resulting in gaps or dropouts.
+
+> [!Tip]
+> The underlying problem is not the mismatched sample rate settings (e.g., 44100 Hz vs. 48000 Hz),
+> but unsynchronized hardware clocks even when all devices are set to the same sample rate.
+
+### Prior Solutions
+
+- **Word Clock**:
+  The best solution is to synchronize every hawrdware to the one common clock.
+  However, this requires every hardware and software to support the synchronization.
+  Some enterprise hardware has the input named "word clock", however, OBS Studio does not support this for now.
+- **Synchronizing to the audio device**:
+  Some consumer products synchronize to the audio device clock to avoid the issue.
+  However, OBS Studio supports multiple inputs, even if you have one audio input, usually there are also video inputs.
+  If you synchronize to one audio device, you will suffer the asynchronous issue on other devices.
+- **Asynchronous sample rate conversion**:
+  Instead of expecting the sample rates to match exactly,
+  the difference of the sample rates will be estimated and
+  the sample rate of the audio source can be converted.
+  This plugin implements this solution.
 
 ## Properties
 
