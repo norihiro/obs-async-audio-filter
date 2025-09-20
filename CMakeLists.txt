@@ -102,6 +102,9 @@ if(USE_ERIKD_LIBSAMPLERATE_DEPS)
 	set(LIBSAMPLERATE_INSTALL_PKGCONFIG_MODULE OFF)
 	option(BUILD_TESTING "" OFF) # ON by default in CTest
 	add_subdirectory(deps/libsamplerate)
+	if (OS_LINUX)
+		set_target_properties(samplerate PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+	endif()
 	target_link_libraries(${PROJECT_NAME}
 		samplerate
 	)
