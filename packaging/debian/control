@@ -7,6 +7,7 @@ Build-Depends:
  debhelper-compat (= 13),
  cmake,
  obs-studio,
+ libsimde-dev,
  libsamplerate0-dev
 Conflicts: obs-async-audio-filter
 Standards-Version: 4.6.2
