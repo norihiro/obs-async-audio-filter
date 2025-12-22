@@ -1,18 +1,20 @@
 cmake_minimum_required(VERSION 3.12)
 
-project(obs-async-audio-filter VERSION 0.3.0)
+project(async-audio-filter VERSION 0.3.0)
 
 set(PLUGIN_AUTHOR "Norihiro Kamae")
 
-set(MACOS_BUNDLEID "net.nagater.obs-async-audio-filter")
+set(PLUGIN_URL "https://obsproject.com/forum/resources/asynchronous-audio-filter.1482/")
 set(ID_PREFIX "net.nagater.obs.")
+set(MACOS_BUNDLEID "net.nagater.obs-async-audio-filter")
 set(MACOS_PACKAGE_UUID "51FA3068-9263-4F49-8426-FD789736BFCC")
 set(MACOS_INSTALLER_UUID "D9714285-DD24-48E0-B90C-8BE2AE026754")
-set(PLUGIN_URL "https://obsproject.com/forum/resources/asynchronous-audio-filter.1482/")
+set(WIN_INSTALLER_UUID   "F9765E9D-7407-4A0B-BECA-D51A6754FBEB")
 
 set(LINUX_MAINTAINER_EMAIL "norihiro@nagater.net")
 
-# In case you need C++
+option(ENABLE_COVERAGE "Enable coverage option for GCC" OFF)
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -62,7 +64,10 @@ target_link_libraries(${PROJECT_NAME}
 	OBS::libobs
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(${PROJECT_NAME}
+	PRIVATE
+	${CMAKE_CURRENT_BINARY_DIR}
+)
 
 if(USE_FFMPEG_SWRESAMPLE)
 	target_sources(${PROJECT_NAME} PRIVATE
@@ -95,6 +100,7 @@ if(USE_ERIKD_LIBSAMPLERATE_SYSTEM)
 endif()
 
 if(USE_ERIKD_LIBSAMPLERATE_DEPS)
+	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/libsamplerate/cmake/")
 	set(BUILD_SHARED_LIBS OFF)
 	set(LIBSAMPLERATE_ENABLE_SINC_FAST_CONVERTER OFF)
@@ -115,15 +121,29 @@ if(OS_WINDOWS)
 	endif()
 
 	target_link_libraries(${PROJECT_NAME} OBS::w32-pthreads)
+
+	set(LICENSE_DESTINATION "${PROJECT_NAME}/data")
 endif()
 
 if(OS_LINUX)
 	target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 	target_link_options(${PROJECT_NAME} PRIVATE -Wl,-z,defs)
+
+	set(LICENSE_DESTINATION ${CMAKE_INSTALL_DOCDIR})
+
+	if(ENABLE_COVERAGE)
+		target_compile_options(${PROJECT_NAME} PRIVATE -coverage -fprofile-update=atomic)
+		target_link_options(${PROJECT_NAME} PRIVATE -coverage)
+		if(USE_ERIKD_LIBSAMPLERATE_DEPS)
+			target_compile_options(samplerate PRIVATE -coverage -fprofile-update=atomic)
+		endif()
+	endif()
 endif()
 
 if(APPLE)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -fvisibility=default")
+
+	set(LICENSE_DESTINATION "${PROJECT_NAME}.plugin/Contents/Resources")
 
 	set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "")
 	set(MACOSX_PLUGIN_GUI_IDENTIFIER "${MACOS_BUNDLEID}")
@@ -131,9 +151,32 @@ if(APPLE)
 	set(MACOSX_PLUGIN_SHORT_VERSION_STRING "1")
 endif()
 
+file(GENERATE OUTPUT .gitignore CONTENT "*\n")
+
 setup_plugin_target(${PROJECT_NAME})
 
+option(INSTALL_LICENSE_FILES "Install license files" ON)
+if(INSTALL_LICENSE_FILES)
+	install(FILES
+		LICENSE
+		DESTINATION ${LICENSE_DESTINATION}
+	)
+
+	if(USE_ERIKD_LIBSAMPLERATE_DEPS)
+		install(FILES
+			deps/libsamplerate/COPYING
+			RENAME libsamplerate-COPYING
+			DESTINATION ${LICENSE_DESTINATION}
+		)
+	endif()
+endif()
+
 if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
+	configure_file(
+		installer/installer-Windows.iss.in
+		installer-Windows.generated.iss
+	)
+
 	configure_file(
 		ci/ci_includes.sh.in
 		ci/ci_includes.generated.sh
@@ -143,9 +186,8 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
 		installer/installer-macOS.pkgproj.in
 		installer-macOS.generated.pkgproj
 	)
-
 	configure_file(
-		installer/installer-Windows.iss.in
-		installer-Windows.generated.iss
+		installer/installer-macOS-post.sh.in
+		installer-macOS-post.generated.sh
 	)
 endif()

@@ -26,14 +26,15 @@ OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 extern const struct obs_source_info asynchronous_audio_info;
 
+const char *obs_module_name(void)
+{
+	return obs_module_text("Module.Name");
+}
+
 bool obs_module_load(void)
 {
 	obs_register_source(&asynchronous_audio_info);
-	blog(LOG_INFO, "plugin loaded (version %s)", PLUGIN_VERSION);
+	blog(LOG_INFO, "plugin loaded (plugin version %s, API version %d.%d.%d)", PLUGIN_VERSION, LIBOBS_API_MAJOR_VER,
+	     LIBOBS_API_MINOR_VER, LIBOBS_API_PATCH_VER);
 	return true;
-}
-
-void obs_module_unload()
-{
-	blog(LOG_INFO, "plugin unloaded");
 }
