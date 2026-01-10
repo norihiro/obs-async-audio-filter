@@ -71,23 +71,13 @@ jobs:
         with:
           name: ${{ env.artifactName }}-linux-obs${{ matrix.obs }}-${{ matrix.ubuntu }}
           path: '${{ env.FILE_NAME }}'
-      - name: Check package
-        run: |
-          . build/ci/ci_includes.generated.sh
-          set -ex
-          sudo apt install -y '${{ env.FILE_NAME }}'
-          ldd /usr/lib/x86_64-linux-gnu/obs-plugins/${PLUGIN_NAME}.so > ldd.out
-          if grep not.found ldd.out ; then
-            echo "Error: unresolved shared object." >&2
-            exit 1
-          fi
-          ls /usr/share/obs/obs-plugins/${PLUGIN_NAME}/
 
       - name: 'Setup with onsdriver'
         uses: noris-plugins-for-obs/onsdriver@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          obs-plugins: ${{ env.FILE_NAME }}
           first-time-log: ./logs/
 
       - name: 'Test with onsdriver'
