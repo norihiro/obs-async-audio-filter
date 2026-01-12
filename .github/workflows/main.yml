@@ -65,6 +65,7 @@ jobs:
           make -j4
           make package
           echo "FILE_NAME=$(find $PWD -name '*.deb' | head -n 1)" >> $GITHUB_ENV
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -292,6 +293,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
       - name: Download obs-studio
         id: obsdeps
         uses: norihiro/obs-studio-devel-action@v2
