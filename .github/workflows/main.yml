@@ -160,7 +160,6 @@ jobs:
         id: obsdeps
         uses: norihiro/obs-studio-devel-action@v2
         with:
-          path: /tmp/deps-${{ matrix.obs }}-${{ matrix.arch }}
           arch: ${{ matrix.arch }}
           obs: ${{ matrix.obs }}
           verbose: true
@@ -169,8 +168,6 @@ jobs:
       - name: Build plugin
         run: |
           arch=${{ matrix.arch }}
-          deps=/tmp/deps-${{ matrix.obs }}-${{ matrix.arch }}
-          MACOSX_DEPLOYMENT_TARGET=${{ steps.obsdeps.outputs.MACOSX_DEPLOYMENT_TARGET }}
           GIT_TAG=$(git describe --tags --always)
           PKG_SUFFIX=-${GIT_TAG}-obs${{ matrix.obs }}-macos-${{ matrix.arch }}
           set -e
