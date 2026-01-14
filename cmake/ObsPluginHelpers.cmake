@@ -134,17 +134,8 @@ if(OS_MACOS)
 
 elseif(OS_POSIX)
 	option(LINUX_PORTABLE "Build portable version (Linux)" OFF)
-	if(NOT LINUX_PORTABLE)
-		set(OBS_LIBRARY_DESTINATION ${CMAKE_INSTALL_LIBDIR})
-		set(OBS_PLUGIN_DESTINATION ${OBS_LIBRARY_DESTINATION}/obs-plugins)
-		set(OBS_DATA_DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/obs)
-	else()
-		set(OBS_LIBRARY_DESTINATION bin/${_ARCH_SUFFIX}bit)
-		set(OBS_PLUGIN_DESTINATION obs-plugins/${_ARCH_SUFFIX}bit)
-		set(OBS_DATA_DESTINATION "data")
-	endif()
 
-	if(OS_LINUX)
+	if(OS_LINUX AND NOT LINUX_PORTABLE)
 		set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
 		set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${LINUX_MAINTAINER_EMAIL}")
 		set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
@@ -154,28 +145,33 @@ elseif(OS_POSIX)
 
 		set(CPACK_GENERATOR "DEB")
 
-		if(NOT LINUX_PORTABLE)
-			set(CPACK_SET_DESTDIR ON)
-		endif()
+		set(CPACK_SET_DESTDIR ON)
 		include(CPack)
 	endif()
 
 	function(setup_plugin_target target)
+		if(NOT LINUX_PORTABLE)
+			set(PLUGIN_BIN ${CMAKE_INSTALL_LIBDIR}/obs-plugins)
+			set(PLUGIN_DATA ${CMAKE_INSTALL_DATAROOTDIR}/obs/obs-plugins/${target})
+		else()
+			set(PLUGIN_BIN ${target}/bin/${_ARCH_SUFFIX}bit)
+			set(PLUGIN_DATA ${target}/data)
+		endif()
+
 		set_target_properties(${target} PROPERTIES PREFIX "")
 
 		install(
 			TARGETS ${target}
-			RUNTIME DESTINATION "${OBS_PLUGIN_DESTINATION}"
-			LIBRARY DESTINATION "${OBS_PLUGIN_DESTINATION}"
+			RUNTIME DESTINATION "${PLUGIN_BIN}"
+			LIBRARY DESTINATION "${PLUGIN_BIN}"
 		)
 
-		if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/data)
-			install(
-				DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data/
-				DESTINATION ${OBS_DATA_DESTINATION}/obs-plugins/${target}
-				USE_SOURCE_PERMISSIONS
-				COMPONENT obs_plugins)
-		endif()
+		install(
+			DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data/
+			DESTINATION ${PLUGIN_DATA}
+			USE_SOURCE_PERMISSIONS
+			OPTIONAL
+		)
 	endfunction()
 
 elseif(OS_WINDOWS)
