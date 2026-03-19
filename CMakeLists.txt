@@ -140,7 +140,7 @@ if(OS_LINUX)
 	endif()
 endif()
 
-if(APPLE)
+if(OS_MACOS)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -fvisibility=default")
 
 	set(LICENSE_DESTINATION "${PROJECT_NAME}.plugin/Contents/Resources")
