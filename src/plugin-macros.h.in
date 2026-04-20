@@ -26,6 +26,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #cmakedefine USE_FFMPEG_SWRESAMPLE
 #cmakedefine USE_ERIKD_LIBSAMPLERATE
+#cmakedefine USE_NEXT_AUDIO_TS
 
 #define blog(level, msg, ...) blog(level, "[" PLUGIN_NAME "] " msg, ##__VA_ARGS__)
 
