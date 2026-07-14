@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-project(async-audio-filter VERSION 0.4.0)
+project(async-audio-filter VERSION 0.5.0)
 
 set(PLUGIN_AUTHOR "Norihiro Kamae")
 
