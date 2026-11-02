@@ -13,7 +13,3 @@ cmd.exe <<EOF
 iscc ..\\build\\installer-Windows.generated.iss /O. /F"${PLUGIN_NAME}-${PackageVersion}-obs$1-Windows-$2-Installer"
 EOF
 sleep 2 && echo
-
-sha1sum \
-	"${PLUGIN_NAME}-${PackageVersion}-obs$1-Windows-$2.zip" \
-	"${PLUGIN_NAME}-${PackageVersion}-obs$1-Windows-$2-Installer.exe"
