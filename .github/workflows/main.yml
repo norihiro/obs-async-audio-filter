@@ -33,18 +33,20 @@ jobs:
             ubuntu: 'ubuntu-24.04'
           - obs: 32
             ubuntu: 'ubuntu-24.04'
+          - obs: 33
+            ubuntu: 'ubuntu-26.04'
     defaults:
       run:
         shell: bash
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Download obs-studio development environment
         id: obsdeps
-        uses: norihiro/obs-studio-devel-action@v2
+        uses: norihiro/obs-studio-devel-action@v3
         with:
           obs: ${{ matrix.obs }}
           verbose: true
@@ -93,18 +95,22 @@ jobs:
             logs/*
 
   macos_build:
-    runs-on: macos-14
+    runs-on: macos-26
     strategy:
       fail-fast: false
       matrix:
-        obs: [28, 30, 31, 32]
-        arch: ['universal']
+        include:
+          - obs: 32
+            arch: 'universal'
+            obs-onsdriver: '<= 33' # 32 does not work from Nov/2026
+          - obs: 33
+            arch: 'universal'
     defaults:
       run:
         shell: bash
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -148,7 +154,7 @@ jobs:
 
       - name: Download obs-studio development environment
         id: obsdeps
-        uses: norihiro/obs-studio-devel-action@v2
+        uses: norihiro/obs-studio-devel-action@v3
         with:
           arch: ${{ matrix.arch }}
           obs: ${{ matrix.obs }}
@@ -235,6 +241,7 @@ jobs:
         with:
           obs-plugins: package/*.pkg
           first-time-log: ./logs/
+          obs-version: ${{ matrix.obs-onsdriver }}
 
       - name: 'Test with onsdriver'
         run: |
@@ -260,30 +267,39 @@ jobs:
           - obs: 30
             arch: 'x64'
             runner: 'windows-2022'
+            obs-onsdriver: '< 31'
           - obs: 31
             arch: 'x64'
             runner: 'windows-2022'
+            obs-onsdriver: '< 32'
           - obs: 32
             arch: 'x64'
             runner: 'windows-2022'
+            obs-onsdriver: '< 33'
           - obs: 32
             arch: 'arm64'
             runner: 'windows-11-arm'
+            obs-onsdriver: '< 33'
+          - obs: 33
+            arch: 'x64'
+            runner: 'windows-2025-vs2026'
+          - obs: 33
+            arch: 'arm64'
+            runner: 'windows-11-arm'
     env:
-      visualStudio: 'Visual Studio 17 2022'
       Configuration: 'RelWithDebInfo'
     defaults:
       run:
         shell: pwsh
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Download obs-studio
         id: obsdeps
-        uses: norihiro/obs-studio-devel-action@v2
+        uses: norihiro/obs-studio-devel-action@v3
         with:
           obs: ${{ matrix.obs }}
           qt: ${{ env.qt }}
@@ -292,8 +308,6 @@ jobs:
       - name: Build plugin
         run: |
           $CmakeArgs = @(
-            '-G', "${{ env.visualStudio }}"
-            '-DCMAKE_SYSTEM_VERSION=10.0.18363.657'
             "-DUSE_ERIKD_LIBSAMPLERATE_DEPS=ON"
             "-DUSE_ERIKD_LIBSAMPLERATE_SYSTEM=OFF"
           )
@@ -318,6 +332,7 @@ jobs:
         with:
           obs-plugins: package/*.exe
           first-time-log: ./logs/
+          obs-version: ${{ matrix.obs-onsdriver }}
 
       - name: 'Test with onsdriver'
         run: |
